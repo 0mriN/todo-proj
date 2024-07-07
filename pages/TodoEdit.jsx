@@ -47,7 +47,7 @@ export function TodoEdit() {
         saveTodo(todoToEdit)
             .then((savedTodo) => {
                 navigate('/todo')
-                showSuccessMsg(`Todo Saved (id: ${savedTodo.txt})`)
+                showSuccessMsg(`Todo Saved (${savedTodo.txt})`)
             })
             .catch(err => {
                 showErrorMsg('Cannot save todo')

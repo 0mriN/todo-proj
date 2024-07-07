@@ -8,7 +8,11 @@ export const userService = {
     signup,
     getById,
     query,
-    getEmptyCredentials
+    getEmptyCredentials,
+    updateUserPreffs,
+    updateBalance,
+    getDefaultPrefs,
+    addActivity
 }
 const STORAGE_KEY_LOGGEDIN = 'user'
 const STORAGE_KEY = 'userDB'
@@ -30,8 +34,8 @@ function login({ username, password }) {
         })
 }
 
-function signup({ username, password, fullname, balance }) {
-    const user = { username, password, fullname, balance: 10000 }
+function signup({ username, password, fullname }) {
+    const user = { username, password, fullname, balance: 10000, activities: [], pref: getDefaultPrefs() }
     user.createdAt = user.updatedAt = Date.now()
 
     return storageService.post(STORAGE_KEY, user)
@@ -58,19 +62,58 @@ function getEmptyCredentials() {
         fullname: '',
         username: 'muki',
         password: 'muki1',
-        balance: 10000
     }
 }
 
-// signup({username: 'muki', password: 'muki1', fullname: 'Muki Ja'})
-// login({username: 'muki', password: 'muki1'})
+function updateBalance(diff) {
+    const loggedinUser = getLoggedinUser()
+    if (!loggedinUser) return
+    return getById(loggedinUser._id)
+        .then(user => {
+            user.balance += diff
+            return storageService.put(STORAGE_KEY, user)
+                .then((user) => {
+                    _setLoggedinUser(user)
+                    return user.balance
+                })
+        })
+}
 
-// Data Model:
-// const user = {
-//     _id: "KAtTl",
-//     username: "muki",
-//     password: "muki1",
-//     fullname: "Muki Ja",
-//     createdAt: 1711490430252,
-//     updatedAt: 1711490430999
-// }
+function updateUserPreffs(userToUpdate) {
+    const loggedinUserId = getLoggedinUser()._id
+    return getById(loggedinUserId)
+        .then(user => {
+            user = { ...user, ...userToUpdate }
+            return storageService.put(STORAGE_KEY, user)
+                .then((savedUser) => {
+                    _setLoggedinUser(savedUser)
+                    return savedUser
+                })
+        })
+}
+
+function addActivity(txt) {
+    const activity = {
+        txt,
+        at: Date.now()
+    }
+    const loggedinUser = getLoggedinUser()
+    if (!loggedinUser) return Promise.reject('No loggedin user')
+    return getById(loggedinUser._id)
+        .then(user => {
+            if (!user.activities) user.activities = []
+            user.activities.unshift(activity)
+            return user
+        })
+        .then(userToUpdate => {
+            return storageService.put(STORAGE_KEY, userToUpdate)
+                .then((savedUser) => {
+                    _setLoggedinUser(savedUser)
+                    return savedUser
+                })
+        })
+}
+
+function getDefaultPrefs() {
+    return { color: '#eeeeee', bgColor: "#191919", fullname: '' }
+}

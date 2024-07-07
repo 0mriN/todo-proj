@@ -3,26 +3,29 @@ import { TodoList } from "../cmps/TodoList.jsx"
 import { DataTable } from "../cmps/data-table/DataTable.jsx"
 import { todoService } from "../services/todo.service.js"
 import { showErrorMsg, showSuccessMsg } from "../services/event-bus.service.js"
-import { SET_TODOS } from "../store/store.js"
 import { loadTodos, removeTodo, saveTodo, setTodos } from "../store/actions/todo.actions.js"
+import { changeBalance } from "../store/actions/user.actions.js"
+import { SET_FILTER_BY } from '../store/store.js'
+import { TodoSort } from '../cmps/TodoSort.jsx'
+import { PaginationBtns } from "../cmps/PaginationBtns.jsx"
 
 const { useState, useEffect } = React
 const { Link, useSearchParams } = ReactRouterDOM
 const { useSelector, useDispatch } = ReactRedux
 
 export function TodoIndex() {
-
-    // const [_todos, setTodos] = useState(null)
     const todos = useSelector(storeState => storeState.todos)
     const isLoading = useSelector(storeState => storeState.isLoading)
     const dispatch = useDispatch()
-
-    // Special hook for accessing search-params:
     const [searchParams, setSearchParams] = useSearchParams()
-
     const defaultFilter = todoService.getFilterFromSearchParams(searchParams)
+    const filterBy = useSelector((storeState) => storeState.filterBy)
+    const maxPage = useSelector((storeState) => storeState.maxPage)
 
-    const [filterBy, setFilterBy] = useState(defaultFilter)
+
+    useEffect(() => {
+        setFilterSort({ ...defaultFilter })
+    }, [])
 
     useEffect(() => {
         setSearchParams(filterBy)
@@ -47,23 +50,43 @@ export function TodoIndex() {
         const todoToSave = { ...todo, isDone: !todo.isDone }
         saveTodo(todoToSave)
             .then((savedTodo) => {
-               dispatch(setTodos(saveTodo))
+                dispatch(setTodos(saveTodo))
                 showSuccessMsg(`Todo is ${(savedTodo.isDone) ? 'done' : 'back on your list'}`)
+                if (todoToSave.isDone) {
+                    return changeBalance(10)
+                }
             })
             .catch(err => {
                 console.log('err:', err)
                 showErrorMsg('Cannot toggle todo ' + todoId)
             })
     }
+    function setFilterSort(filterBy) {
+        const action = {
+            type: SET_FILTER_BY,
+            filterBy,
+        }
+        dispatch(action)
+    }
 
-    if (!todos) return <div>Loading...</div>
+    function onChangePageIdx(diff) {
+        let newPageIdx = +filterBy.pageIdx + diff
+        if (newPageIdx < 0) newPageIdx = maxPage - 1
+        if (newPageIdx >= maxPage) newPageIdx = 0
+        setFilterSort({ ...filterBy, pageIdx: newPageIdx, })
+    }
+
+    // if (!todos) return <div>Loading...</div>
     return (
         <section className="todo-index">
-            <TodoFilter filterBy={filterBy} onSetFilterBy={setFilterBy} />
+            <TodoFilter filterBy={filterBy} onSetFilterBy={setFilterSort} />
+            <TodoSort filterBy={defaultFilter} onSetFilterBy={setFilterSort} />
+
             <div>
                 <Link to="/todo/edit" className="btn" >Add Todo</Link>
             </div>
             <h2>Todos List</h2>
+            <PaginationBtns filterSortBy={filterBy} onChangePageIdx={onChangePageIdx} />
             {isLoading
                 ? <div>Loading...</div>
                 : <TodoList todos={todos} onRemoveTodo={onRemoveTodo} onToggleTodo={onToggleTodo} />
